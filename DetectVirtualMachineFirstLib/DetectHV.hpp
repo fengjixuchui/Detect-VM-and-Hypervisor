@@ -91,6 +91,9 @@ namespace DetectHyp {
 		for (INT j = 0; j < 10; j++)
 		{
 			tscp1 = __rdtscp(&blabla);
+			//call 3 couid for normal detect
+			__cpuid(cpuid, 0);
+			__cpuid(cpuid, 0);
 			__cpuid(cpuid, 0);
 			tscp2 = __rdtscp(&blabla);
 			avg += tscp2 - tscp1;
