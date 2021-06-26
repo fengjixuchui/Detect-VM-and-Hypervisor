@@ -9,7 +9,7 @@
 
 EXTERN_C void BEShit();
 
-EXTERN_C  bool  CheckInd();
+EXTERN_C  __int64  CheckInd();
 EXTERN_C __int64 LBRVirt();
 namespace DetectHyp {
 
@@ -249,7 +249,7 @@ namespace DetectHyp {
 	
 	inline bool CheckIndv() {
 		
-		__try {		CheckInd();		}
+		__try {		if(CheckInd()){return true;} else {return false;}		}
 		__except (EXCEPTION_EXECUTE_HANDLER) 
 		{
 			return false;
@@ -259,7 +259,7 @@ namespace DetectHyp {
 
 	inline bool LBRBadVirtCheck() {
 		__try {
-		 LBRVirt() 
+		 if(LBRVirt()){return true;} else {return false;}
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
 			return false;
