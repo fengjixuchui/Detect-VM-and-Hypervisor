@@ -9,7 +9,7 @@
 
 EXTERN_C void BEShit();
 
-EXTERN_C  bool  CheckInd();
+EXTERN_C  __int64  CheckInd();
 EXTERN_C __int64 LBRVirt();
 namespace DetectHyp {
 
@@ -91,6 +91,9 @@ namespace DetectHyp {
 		for (INT j = 0; j < 10; j++)
 		{
 			tscp1 = __rdtscp(&blabla);
+			//call 3 cpuid for normal detect
+			__cpuid(cpuid, 0);
+			__cpuid(cpuid, 0);
 			__cpuid(cpuid, 0);
 			tscp2 = __rdtscp(&blabla);
 			avg += tscp2 - tscp1;
@@ -246,7 +249,7 @@ namespace DetectHyp {
 	
 	inline bool CheckIndv() {
 		
-		__try {		CheckInd();		}
+		__try {		if(CheckInd()){return true;} else {return false;}		}
 		__except (EXCEPTION_EXECUTE_HANDLER) 
 		{
 			return false;
@@ -256,7 +259,7 @@ namespace DetectHyp {
 
 	inline bool LBRBadVirtCheck() {
 		__try {
-		 LBRVirt() 
+		 if(LBRVirt()){return true;} else {return false;}
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
 			return false;
