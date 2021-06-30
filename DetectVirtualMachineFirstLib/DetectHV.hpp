@@ -189,7 +189,32 @@ namespace DetectHyp {
 		return EXCEPTION_EXECUTE_HANDLER;
 	}
 
+	inline bool  RdtscpCorrupt() {
+		//maybe undafe 	?
+		//		If we many call rdtscp & cpuid we have a big value (1000-36000)
+		
 
+		unsigned int  blabla = 0;
+		unsigned int tscp1 = 0;
+		unsigned int tscp2 = 0;
+		DWORD avg = 0;
+		INT cpuid[4] = {};
+
+		for (INT j = 0; j < INT_MAX; j++)
+		{
+			tscp1 = __rdtscp(&blabla);
+			__cpuid(cpuid, 0);
+			__cpuid(cpuid, 0);
+			__cpuid(cpuid, 0);
+			tscp2 = __rdtscp(&blabla);
+			avg += tscp2 - tscp1;
+			if (avg > 4000  )// recomende change to 1500-2000
+				return false;
+			else
+				avg = 0;
+		}
+		return true;
+	}
 	
 
 	inline bool SehCpuid() 
