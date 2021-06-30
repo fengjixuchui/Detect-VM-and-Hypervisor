@@ -23,7 +23,7 @@ int main() {
 	std::cout << "Mistake hyp cpuid ->\t" << DetectHyp::SehCpuid() << '\n';
 	std::cout << "readmsr  0x40000000 ->\t" <<   DetectHyp::KiSyntheticMsrCheck() << '\n';
 	std::cout << "Compare cpuid list ->\t" << DetectHyp::UmpIsSystemVirtualized() << '\n';
-
+	std::cout << "Rdtscp corrupt ?->\t" << DetectHyp::RdtscpCorrupt() << '\n';
 	
 		 
 
