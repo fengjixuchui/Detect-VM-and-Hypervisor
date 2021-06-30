@@ -190,9 +190,11 @@ namespace DetectHyp {
 	}
 
 	inline bool  RdtscpCorrupt() {
-		//maybe undafe 	?
-		//		If we many call rdtscp & cpuid we have a big value (1000-36000)
-		
+		/*
+		maybe undafe 	?
+		If we many call rdtscp & cpuid we have a big value (1000-36000)
+		https://www.unknowncheats.me/forum/escape-from-tarkov/418885-kvm-detection-fixes.html
+		*/
 
 		unsigned int  blabla = 0;
 		unsigned int tscp1 = 0;
