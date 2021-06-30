@@ -202,7 +202,7 @@ namespace DetectHyp {
 		DWORD avg = 0;
 		INT cpuid[4] = {};
 
-		for (INT j = 0; j < INT_MAX; j++)
+		for (INT j = 0; j < 0x13337; j++)
 		{
 			tscp1 = __rdtscp(&blabla);
 			__cpuid(cpuid, 0);
