@@ -1,4 +1,4 @@
-#pragma once
+pragma once
 #include "ntdll.h"
 #include <intrin.h>
 #include "AlterApi.h"
@@ -8,54 +8,28 @@
 
 
 EXTERN_C void BEShit();
+EXTERN_C __int16 LazyCheckHyperv();
 
-EXTERN_C  __int64  CheckInd();
-EXTERN_C __int64 LBRVirt();
+
 namespace DetectHyp {
 
 
-#define LODWORD(_qw)    ((DWORD)(_qw))
 
-
-
-
-
-
-	inline int GetWindowsBuld()
-	{
-		return *(DWORD*)0x7FFE026C;  /* KUSER_SHARED_DATA + WindowsBuld		 = 10*/
-	}
-
-	inline int GetBuildNumber()
-	{
-		return 	*(ULONG*)0x07FFE0260;	/*KUSER_SHARED_DATA + NtBuildNumber	   build = 19042*/
+	inline bool RdtscpSupport() {
+		INT cpuid[4] = { -1 };
+		__cpuid(cpuid, 0x80000001);
+		return ((cpuid[3] >> 27) & 1);// chekc 27 bit EDX
 	}
 
 
 	inline bool CpuidIsHyperv()
-	{
-		
-		// Query hypervisor precense using CPUID (EAX=1), BIT 31 in ECX 
-		int cpuinf[4] = { 0 };
+	{// Check 31 bit  in ECX 
+		INT cpuinf[4] = { 0 };
 		__cpuid(cpuinf, 1);
 		return ((cpuinf[2] >> 31) & 1);
-		
 	}
 
-	inline bool KiSyntheticMsrCheck()
-	{
-
-		__try
-		{
-			__readmsr(0x40000000);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			return FALSE;
-		}
-
-		return TRUE;
-	}
+	
 
 	inline  bool   RdtscCpu()
 	{
@@ -64,45 +38,44 @@ namespace DetectHyp {
 		DWORD avg = 0;
 		INT cpuInfo[4] = {};
 		for (INT i = 0; i < 10; i++)
-			{
+		{
 				tsc1 = __rdtsc();
 				__cpuid(cpuInfo, 0);
 				tsc2 = __rdtsc();
 				avg += (tsc2 - tsc1);
-			}
+		}
 			avg = avg / 10;
 			return (avg < 500 && avg > 25) ? FALSE : TRUE;
-
-
-
-
 	}
 
 	inline bool Rdtscp() {
 		
-
-
 		unsigned int  blabla = 0;
-		unsigned int tscp1 = 0;
-		unsigned int tscp2 = 0;
+		DWORD tscp1 = 0;
+		DWORD tscp2 = 0;
 		DWORD avg = 0;
 		INT cpuid[4] = {};
 
-		for (INT j = 0; j < 10; j++)
-		{
-			tscp1 = __rdtscp(&blabla);
-			//call 3 cpuid for normal detect
-			__cpuid(cpuid, 0);
-			__cpuid(cpuid, 0);
-			__cpuid(cpuid, 0);
-			tscp2 = __rdtscp(&blabla);
-			avg += tscp2 - tscp1;
-			if (avg < 500 && avg > 25)
-				return false;  
-			else
-				avg = 0;
+		if (DetectHyp::RdtscpSupport()) {
+			for (INT j = 0; j < 10; j++)
+			{
+				tscp1 = __rdtscp(&blabla);
+				//call 3 cpuid for normal detect
+				__cpuid(cpuid, 0);
+				__cpuid(cpuid, 0);
+				__cpuid(cpuid, 0);
+				tscp2 = __rdtscp(&blabla);
+				avg += tscp2 - tscp1;
+				if (avg < 500 && avg > 25)
+					return false;
+				else
+					avg = 0;
+			}
+			return true;
 		}
-		return true;
+		else 
+			return false; //rdtscp dont support
+		
 		
 
 	}
@@ -113,11 +86,9 @@ namespace DetectHyp {
 	
 	inline bool  RdtscHeap()
 	{
-		ULONGLONG tsc1;
-		ULONGLONG tsc2;
-		ULONGLONG tsc3;
-
-
+		ULONGLONG tsc1 = 0;
+		ULONGLONG tsc2 = 0;
+		ULONGLONG tsc3 = 0;
 
 		for (DWORD i = 0; i < 10; i++)
 		{
@@ -131,24 +102,19 @@ namespace DetectHyp {
 
 			tsc3 = __rdtsc();
 			
-			if ((LODWORD(tsc3) - LODWORD(tsc2)) / (LODWORD(tsc2) - LODWORD(tsc1)) >= 10)
+			if ((tsc3 - tsc2) / (tsc2 - tsc1) >= 10)
 				return FALSE;
 		}
-
-
 
 		return TRUE;
 	}
 	inline bool UmpIsSystemVirtualized() {
-		
+		// We just compare cpuid list & if its eaqual,thene we  in hypervisor
 
-		unsigned int invalid_leaf = 0x13371337;
-		unsigned int valid_leaf = 0x40000000;
-
-
-
-		int  InvalidLeafResponse[4] = { 0 ,0,0,0 };
-		int ValidLeafResponse[4] = { 0 ,0,0,0 };
+		DWORD invalid_leaf = 0x13371337;
+		DWORD valid_leaf = 0x40000000;
+		INT  InvalidLeafResponse[4] = {  -1};
+		INT ValidLeafResponse[4] = { -1 };
 
 		__cpuid(InvalidLeafResponse, invalid_leaf);
 		__cpuid(ValidLeafResponse, valid_leaf);
@@ -165,7 +131,7 @@ namespace DetectHyp {
 	}
 
 
-	inline int filter(unsigned int code, struct _EXCEPTION_POINTERS* ep, bool& bDetected, int& singleStepCount)
+	inline int filter(unsigned int code, struct _EXCEPTION_POINTERS* ep, BOOL& bDetected, int& singleStepCount)
 	{
 		if (code != EXCEPTION_SINGLE_STEP)
 		{
@@ -189,41 +155,11 @@ namespace DetectHyp {
 		return EXCEPTION_EXECUTE_HANDLER;
 	}
 
-	inline bool  RdtscpCorrupt() {
-		/*
-		maybe undafe 	?
-		If we many call rdtscp & cpuid we have a big value (1000-36000)
-		https://www.unknowncheats.me/forum/escape-from-tarkov/418885-kvm-detection-fixes.html
-		*/
-
-		unsigned int  blabla = 0;
-		unsigned int tscp1 = 0;
-		unsigned int tscp2 = 0;
-		DWORD avg = 0;
-		INT cpuid[4] = {};
-
-		for (INT j = 0; j < 0x13337; j++)
-		{
-			tscp1 = __rdtscp(&blabla);
-			__cpuid(cpuid, 0);
-			__cpuid(cpuid, 0);
-			__cpuid(cpuid, 0);
-			tscp2 = __rdtscp(&blabla);
-			avg += tscp2 - tscp1;
-			if (avg > 4000  )// recomende change to 1500-2000
-				return false;
-			else
-				avg = 0;
-		}
-		return true;
-	}
-	
-
-	inline bool SehCpuid() 
+	inline bool ResCheckTrapFlag() 
 	{
 		
-		bool bDetected = 0;
-		int singleStepCount = 0;
+		BOOL bDetected = FALSE;
+		INT singleStepCount = NULL;
 		CONTEXT ctx{};
 		ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 		GetThreadContext(GetCurrentThread(), &ctx);
@@ -232,7 +168,7 @@ namespace DetectHyp {
 		SetThreadContext(GetCurrentThread(), &ctx);
 		__try
 		{
-			BEShit();
+			BEShit(); //trap flag work
 		}
 		__except (filter(GetExceptionCode(), GetExceptionInformation(), bDetected, singleStepCount))
 
@@ -240,6 +176,7 @@ namespace DetectHyp {
 			if (singleStepCount != 1)
 			{
 				bDetected = 1;
+
 			}
 
 		}
@@ -247,57 +184,10 @@ namespace DetectHyp {
 		
 		
 	}
-	inline bool VMExit_xgetbv() {
-		UINT64 XCR0 = _xgetbv(0);
-
-		__try {
-			// Clear the bit 0 of XCR0 to cause a #GP(0)!
-			_xsetbv(0, XCR0 & ~1);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER) {
-
-			//normal
-			return false;
-		}
-		return true;
-	}
-	inline bool SidtExcept() {
-		__try {
-			__sidt(NULL);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER) {
-			return false;
-		}
-		return true;
-	}
-
-
-
-	
-	inline bool CheckIndv() {
-		
-		__try {		if(CheckInd()){return true;} else {return false;}		}
-		__except (EXCEPTION_EXECUTE_HANDLER) 
-		{
-			return false;
-		}
-		return true;
-	}
-
-	inline bool LBRBadVirtCheck() {
-		__try {
-		 if(LBRVirt()){return true;} else {return false;}
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER) {
-			return false;
-		}
-		return true;
-	}
-	
 
 	
 
-	inline bool  CpuidbyName()
+	inline bool  CheckKnowHypervisor()
 	{
 		
 
@@ -333,11 +223,11 @@ namespace DetectHyp {
 			pwszConverted = alternat_api::CharToWChar_T(szHypervisorVendor);
 			if (pwszConverted) {
 
-				bResult = (wcscmp(pwszConverted, szBlacklistedHypervisors[i]) == 0);
+				bResult = (wcscmp(pwszConverted, szBlacklistedHypervisors[i]) == 0); // compare name
 
 				free(pwszConverted);
-
-				if (bResult)
+				 
+				if (bResult) 
 					return TRUE;
 			}
 		}
@@ -345,53 +235,115 @@ namespace DetectHyp {
 			
 		return FALSE;
 	}
+	inline bool LazyCheckHypervisor() {
+		/*
+		 EAC use this meme & code wase manual deobfuscation 
+		 see this meme detect https://pastebin.com/2gv72r7d 
+		 EAC code:
+		xor ecx,ecx 
+		mov eax,1 
+		cpuid
+		mov     edi, ecx   ; its just  test ecx,80000000h
+		test    edi, 80000000h
+		setnz   al
 
+		*/
+		if (LazyCheckHyperv())
+			return true;
+		else
+			return false;
 
+	}
 
+	inline bool SystemHypDetailInformation(){
+		//	SYSTEM_HYPERVISOR_DETAIL_INFORMATION -> https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ex/sysinfo/hypervisor_detail.htm
 
-	inline bool SysHypervInform(){
-		
-
-		SYSTEM_HYPERVISOR_DETAIL_INFORMATION systInformat{0};
+		SYSTEM_HYPERVISOR_DETAIL_INFORMATION systHypervDetailInf{0};
 		ULONG retLenth = NULL;
 
-			 NtQuerySystemInformation(
+			NtQuerySystemInformation(
 			SystemHypervisorDetailInformation,
-			&systInformat,
+			&systHypervDetailInf,
 			sizeof(SYSTEM_HYPERVISOR_DETAIL_INFORMATION), //0x70
 			&retLenth
 			);
+		 if (systHypervDetailInf.ImplementationLimits.Data[0] != 0
+				 || systHypervDetailInf.HypervisorInterface.Data[0] != 0
+				 || systHypervDetailInf.EnlightenmentInfo.Data[0] != 0
+				 || systHypervDetailInf.HvVendorAndMaxFunction.Data[0] != 0
+				 || systHypervDetailInf.HvVendorAndMaxFunction.Data[1] != 0)
+				 return true;
+			 else
+				 return false;
+		 /*
+		 NtQuerySystemInformation with SystemHypervisorDetailInformation call:
+		 HviGetHypervisorVendorAndMaxFunction -> HviIsAnyHypervisorPresent & call cpuid with eax =  40000000h & set result in  registry
+		 HviGetHypervisorInterface -> HviIsAnyHypervisorPresent & call cpuid with eax =  40000001h & set result in  registry
+		 HviGetHypervisorVersion -> HviIsHypervisorMicrosoftCompatible
+		 HviGetHypervisorFeatures -> HviIsHypervisorMicrosoftCompatible &  call cpuid with eax = 40000003h & set result in  registry
+		 HviGetHardwareFeatures -> HviGetHypervisorVendorAndMaxFunction & call cpuid with eax = 40000006h & set result in  registry
+		 HviGetEnlightenmentInformation -> HviIsHypervisorMicrosoftCompatible & call cpuid eax = 40000004h & set result in  registry
+		 HviGetImplementationLimits -> HviIsHypervisorMicrosoftCompatible & call cpuid with eax = 40000005h & set result in  registry
+		 after this its set value in you stuct & return result in  NtQuerySystemInformation
+		 
 
+		 HviIsAnyHypervisorPresent :
+		 call cpuid with eax = 40000001h
+		 if(rax != 766E6258h)
+		  bdetectHyp = true
 
-	//	SYSTEM_HYPERVISOR_DETAIL_INFORMATION -> https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ex/sysinfo/hypervisor_detail.htm
+		  HviIsHypervisorMicrosoftCompatible:
+		  int v1[4]
+		  call HviGetHypervisorInterface
+		  return v1[0] == 31237648h
 
+		  HviGetHypervisorInterface:
+		  call HviIsAnyHypervisorPresent
+		  call cpuid with eax =  40000001h & set result in registry
 
-			 return systInformat.ImplementationLimits.Data[0] != 0	
-				 &&  systInformat.HypervisorInterface.Data[0] != 0
-				 &&  systInformat.EnlightenmentInfo.Data[0] != 0
-				 &&  systInformat.HvVendorAndMaxFunction.Data[0] != 0
-				 &&  systInformat.HvVendorAndMaxFunction.Data[1] != 0;
-			 
-
-
-		//This do detect 
-		/*systInformat.ImplementationLimits.Data[0] != 0
-		SYSTEM_HYPERVISOR_DETAIL_INFORMATION->HV_IMPLEMENTATION_LIMITS->MaxVirtualProcessorCount
-
-		return systInformat.HypervisorInterface.Data[0] != 0;
-		SYSTEM_HYPERVISOR_DETAIL_INFORMATION->HV_HYPERVISOR_INTERFACE_INFO->Interface
-		
-		
-		return  systInformat.EnlightenmentInfo.Data[0] != 0;
-		SYSTEM_HYPERVISOR_DETAIL_INFORMATION->HV_X64_ENLIGHTENMENT_INFORMATION->bla bla bla
-	
-		return	systInformat.HvVendorAndMaxFunction.Data[0] != 0 || systInformat.HvVendorAndMaxFunction.Data[1] != 0;
-		SYSTEM_HYPERVISOR_DETAIL_INFORMATION->HvVendorAndMaxFunction->Interface ||		SYSTEM_HYPERVISOR_DETAIL_INFORMATION->HvVendorAndMaxFunction->	Reserved1
-		
-		return systInformat.ImplementationLimits.Data[0] != 0;
-		SYSTEM_HYPERVISOR_DETAIL_INFORMATION->HV_IMPLEMENTATION_LIMITS->MaxVirtualProcessorCount
-		*/
+		 */
 	
 	}
+		inline bool  RdtscpCorrupt() {
+
+			/*
+			maybe undafe 	?
+			If we many call rdtscp & cpuid we have a big value (1000-50000)
+			 if rdtscp return all time one value(like : 100) or value change,  after call cpuid
+			(like rdtsp+=80),then we cane try trap this 
+			P.S Yes,this stupid,but why not?
+			*/
+
+
+
+
+
+			unsigned int  blabla = 0;
+			DWORD tscp1 = 0;
+			DWORD tscp2 = 0;
+			DWORD avg = 0;
+			INT cpuid[4] = {};
+			if (DetectHyp::RdtscpSupport()) {
+				for (INT j = 0; j < 0x13337; j++)
+				{
+					tscp1 = __rdtscp(&blabla);
+					__cpuid(cpuid, 0);
+
+
+					tscp2 = __rdtscp(&blabla);
+					avg += tscp2 - tscp1;
+					if (avg > 3000 && avg < 150000)
+					{
+						return false;
+					}
+					else
+						avg = 0;
+				}
+				return true;
+			}
+			else
+				return false;
+		}
+
 	
 }
