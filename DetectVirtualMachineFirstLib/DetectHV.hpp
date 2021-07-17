@@ -1,4 +1,4 @@
-pragma once
+#pragma once
 #include "ntdll.h"
 #include <intrin.h>
 #include "AlterApi.h"
