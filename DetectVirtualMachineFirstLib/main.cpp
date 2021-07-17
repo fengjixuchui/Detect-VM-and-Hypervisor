@@ -17,7 +17,7 @@ int main() {
 	std::cout << "Lazy check Hypervisor ->\t" << DetectHyp::LazyCheckHypervisor() << '\n';
 	std::cout << "TF check  execute code ->\t" << DetectHyp::ResCheckTrapFlag() << '\n';
 	std::cout << "Compare cpuid list ->\t" << DetectHyp::UmpIsSystemVirtualized() << '\n';
-	std::cout << "Rdtscp corrupt ?\t->\t" << DetectHyp::RdtscpCorrupt() << '\n';//cane have big value,then you compile code
+	std::cout << "Rdtscp corrupt ?\t->\t" << DetectHyp::RdtscpCorrupt() << '\n';//can have big value,then you compile code
 		 
 
 
